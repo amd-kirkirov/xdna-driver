@@ -86,11 +86,24 @@ static int psp_exec(struct psp_device *psp, u32 *reg_vals)
 void aie2_psp_stop(struct psp_device *psp)
 {
 	u32 reg_vals[PSP_NUM_IN_REGS] = { PSP_RELEASE_TMR, };
+	int susp_reg = -1, mode_reg = -1;
 	int ret;
 
 	ret = psp_exec(psp, reg_vals);
 	if (ret)
 		dev_err(psp->dev, "release tmr failed, ret %d", ret);
+
+	ret = readx_poll_timeout(readl, PSP_REG(psp, PSP_SUSP_RDY_REG), susp_reg,
+				 susp_reg == 1,
+				 PSP_POLL_INTERVAL, PSP_POLL_TIMEOUT);
+	if (ret)
+		dev_err(psp->dev, "PSP error susp reg, ret 0x%x", ret);
+
+	ret = readx_poll_timeout(readl, PSP_REG(psp, PSP_PWAITMODE_REG), mode_reg,
+				 (mode_reg & 0x1) == 1,
+				 PSP_POLL_INTERVAL, PSP_POLL_TIMEOUT);
+	if (ret)
+		dev_err(psp->dev, "PSP error sleep reg, ret 0x%x", ret);
 }
 
 int aie2_psp_start(struct psp_device *psp)
